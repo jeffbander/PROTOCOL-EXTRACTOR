@@ -79,11 +79,26 @@ CREATE TABLE public.patients (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Invitations (for admin-only user registration)
+CREATE TABLE public.invitations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT NOT NULL,
+  role TEXT CHECK (role IN ('admin', 'pi', 'coordinator')) NOT NULL,
+  invited_by UUID REFERENCES public.users(id),
+  study_id UUID REFERENCES public.studies(id),
+  status TEXT CHECK (status IN ('pending', 'accepted', 'expired')) DEFAULT 'pending',
+  token TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Indexes for better query performance
 CREATE INDEX idx_studies_owner_id ON public.studies(owner_id);
 CREATE INDEX idx_study_members_study_id ON public.study_members(study_id);
 CREATE INDEX idx_study_members_user_id ON public.study_members(user_id);
 CREATE INDEX idx_patients_study_id ON public.patients(study_id);
+CREATE INDEX idx_invitations_token ON public.invitations(token);
+CREATE INDEX idx_invitations_email ON public.invitations(email);
 
 -- Function to automatically create user profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

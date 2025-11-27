@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { randomUUID } from 'crypto'
 
 export async function POST(
   request: NextRequest,
@@ -19,44 +20,85 @@ export async function POST(
     const { email, role } = await request.json()
 
     // Find user by email
-    const { data: userData, error: userError } = await serviceClient
+    const { data: userData } = await serviceClient
       .from('users')
       .select('id')
       .eq('email', email)
       .single()
 
-    if (userError || !userData) {
-      return NextResponse.json({ error: 'User not found with that email' }, { status: 404 })
+    // If user exists, add them directly
+    if (userData) {
+      // Check if already a member
+      const { data: existingMember } = await serviceClient
+        .from('study_members')
+        .select('id')
+        .eq('study_id', studyId)
+        .eq('user_id', userData.id)
+        .single()
+
+      if (existingMember) {
+        return NextResponse.json({ error: 'User is already a member of this study' }, { status: 400 })
+      }
+
+      // Add member
+      const { data: member, error: memberError } = await serviceClient
+        .from('study_members')
+        .insert({
+          study_id: studyId,
+          user_id: userData.id,
+          role: role || 'coordinator',
+        })
+        .select()
+        .single()
+
+      if (memberError) {
+        throw memberError
+      }
+
+      return NextResponse.json({ member, message: 'User added to study' })
     }
 
-    // Check if already a member
-    const { data: existingMember } = await serviceClient
-      .from('study_members')
+    // User doesn't exist - create an invitation
+    // Check for existing pending invitation for this email and study
+    const { data: existingInvite } = await serviceClient
+      .from('invitations')
       .select('id')
+      .eq('email', email)
       .eq('study_id', studyId)
-      .eq('user_id', userData.id)
+      .eq('status', 'pending')
       .single()
 
-    if (existingMember) {
-      return NextResponse.json({ error: 'User is already a member of this study' }, { status: 400 })
+    if (existingInvite) {
+      return NextResponse.json({ error: 'Invitation already sent to this email for this study' }, { status: 400 })
     }
 
-    // Add member
-    const { data: member, error: memberError } = await serviceClient
-      .from('study_members')
+    // Create invitation with study_id
+    const token = randomUUID()
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days expiry
+
+    const { data: invitation, error: inviteError } = await serviceClient
+      .from('invitations')
       .insert({
-        study_id: studyId,
-        user_id: userData.id,
+        email,
         role: role || 'coordinator',
+        invited_by: user.id,
+        study_id: studyId,
+        token,
+        expires_at: expiresAt.toISOString(),
       })
       .select()
       .single()
 
-    if (memberError) {
-      throw memberError
+    if (inviteError) {
+      throw inviteError
     }
 
-    return NextResponse.json({ member })
+    return NextResponse.json({
+      invitation,
+      inviteUrl: `/invite/${token}`,
+      message: 'User not found - invitation created. Share the invite link with them.',
+    })
   } catch (error: any) {
     console.error('Add member error:', error)
     return NextResponse.json(

@@ -49,6 +49,8 @@ export default function StudyDetailPage() {
   const [addMemberEmail, setAddMemberEmail] = useState('')
   const [addMemberRole, setAddMemberRole] = useState<'pi' | 'coordinator'>('coordinator')
   const [addingMember, setAddingMember] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [newPatientName, setNewPatientName] = useState('')
   const [newPatientDate, setNewPatientDate] = useState('')
   const [addingPatient, setAddingPatient] = useState(false)
@@ -87,6 +89,8 @@ export default function StudyDetailPage() {
     e.preventDefault()
     setAddingMember(true)
     setError('')
+    setInviteUrl('')
+    setSuccessMessage('')
 
     try {
       const response = await fetch(`/api/studies/${studyId}/members`, {
@@ -95,12 +99,21 @@ export default function StudyDetailPage() {
         body: JSON.stringify({ email: addMemberEmail, role: addMemberRole }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to add member')
+        throw new Error(data.error || 'Failed to add member')
       }
 
-      await fetchStudyData()
+      // Check if an invitation was created (user doesn't exist)
+      if (data.inviteUrl) {
+        setInviteUrl(`${window.location.origin}${data.inviteUrl}`)
+        setSuccessMessage(data.message)
+      } else {
+        setSuccessMessage('User added to study successfully!')
+        await fetchStudyData()
+      }
+
       setAddMemberEmail('')
       setAddMemberRole('coordinator')
     } catch (err: any) {
@@ -108,6 +121,11 @@ export default function StudyDetailPage() {
     } finally {
       setAddingMember(false)
     }
+  }
+
+  const copyInviteLink = async () => {
+    await navigator.clipboard.writeText(inviteUrl)
+    setSuccessMessage('Invite link copied to clipboard!')
   }
 
   const handleRemoveMember = async (memberId: string) => {
@@ -323,6 +341,35 @@ export default function StudyDetailPage() {
                     >
                       {addingMember ? 'Adding...' : 'Add Member'}
                     </button>
+
+                    {/* Success message */}
+                    {successMessage && !inviteUrl && (
+                      <div className="rounded-md bg-green-50 p-3">
+                        <p className="text-sm text-green-800">{successMessage}</p>
+                      </div>
+                    )}
+
+                    {/* Invite URL display */}
+                    {inviteUrl && (
+                      <div className="rounded-md bg-blue-50 p-4 space-y-2">
+                        <p className="text-sm text-blue-800">{successMessage}</p>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={inviteUrl}
+                            className="flex-1 text-sm bg-white border border-blue-200 rounded px-3 py-2"
+                          />
+                          <button
+                            type="button"
+                            onClick={copyInviteLink}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </form>
                 )}
 

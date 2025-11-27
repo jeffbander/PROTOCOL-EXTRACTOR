@@ -6,7 +6,10 @@
       "Bash(npm install:*)",
       "Bash(npx tsx:*)",
       "Bash(npm run dev:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Add Mistral OCR, fix RLS issues, add team/patient management APIs\n\n- Replace PDF processing with Mistral OCR for better scanned document support\n- Add service role client to bypass RLS recursion issues\n- Create API routes for study members (POST/DELETE)\n- Create API route for patients (POST)\n- Update study detail page to fetch via API\n- Fix dashboard query to avoid study_members RLS issues\n- Update README and env example for new dependencies\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Add user access control and admin system\n\n- Lock down registration (invitation-only, no self-signup with role selection)\n- Add admin panel with user management (/admin/users)\n- Add invitation system for new users (/admin/invitations)\n- Add invitation acceptance flow (/invite/[token])\n- Update dashboard to show owned + assigned studies\n- Allow PIs to invite new users directly from study page\n- Add role-based access (admin can manage all, PI can create studies, coordinator can view assigned)\n- Add invitations table schema to SETUP.md\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

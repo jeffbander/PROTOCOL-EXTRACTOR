@@ -11,6 +11,14 @@ export interface UserProfile {
   role: 'admin' | 'pi' | 'coordinator'
 }
 
+export function isAdmin(profile: UserProfile | null): boolean {
+  return profile?.role === 'admin'
+}
+
+export function canCreateStudies(profile: UserProfile | null): boolean {
+  return profile?.role === 'admin' || profile?.role === 'pi'
+}
+
 export function useUser() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
