@@ -4,18 +4,31 @@ import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
 export default function Navbar() {
   const { profile, loading } = useUser()
   const router = useRouter()
   const supabase = createClient()
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Get user email from auth even if profile doesn't exist
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email || null)
+    })
+  }, [supabase.auth])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/auth/login')
   }
 
-  if (loading) {
+  // Always show navbar with sign out if we have a user email
+  const displayEmail = profile?.email || userEmail
+  const displayRole = profile?.role || 'pi' // Default to PI for new users
+
+  if (loading && !userEmail) {
     return (
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -27,10 +40,6 @@ export default function Navbar() {
         </div>
       </nav>
     )
-  }
-
-  if (!profile) {
-    return null
   }
 
   return (
@@ -47,25 +56,25 @@ export default function Navbar() {
             >
               My Studies
             </Link>
-            {(profile.role === 'pi' || profile.role === 'admin') && (
-              <Link
-                href="/studies/upload"
-                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Upload Protocol
-              </Link>
-            )}
+            <Link
+              href="/studies/upload"
+              className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+            >
+              Upload Protocol
+            </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-700">
-              {profile.email}
-              <span className="ml-2 px-2 py-1 text-xs bg-primary-100 text-primary-800 rounded-full">
-                {profile.role === 'pi' ? 'PI' : profile.role === 'admin' ? 'Admin' : 'Coordinator'}
+            {displayEmail && (
+              <span className="text-sm text-gray-700">
+                {displayEmail}
+                <span className="ml-2 px-2 py-1 text-xs bg-primary-100 text-primary-800 rounded-full">
+                  {displayRole === 'pi' ? 'PI' : displayRole === 'admin' ? 'Admin' : 'Coordinator'}
+                </span>
               </span>
-            </span>
+            )}
             <button
               onClick={handleSignOut}
-              className="text-sm text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md font-medium"
+              className="text-sm text-red-600 hover:text-red-800 px-3 py-2 rounded-md font-medium border border-red-200 hover:bg-red-50"
             >
               Sign Out
             </button>

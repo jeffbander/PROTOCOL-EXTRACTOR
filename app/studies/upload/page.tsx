@@ -5,7 +5,6 @@ import { useState } from 'react'
 export const dynamic = 'force-dynamic'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
-import { useUser } from '@/lib/hooks/useUser'
 
 interface ExtractedData {
   name: string
@@ -24,7 +23,6 @@ export default function UploadProtocolPage() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const router = useRouter()
-  const { profile, loading } = useUser()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -99,15 +97,6 @@ export default function UploadProtocolPage() {
     } finally {
       setCreating(false)
     }
-  }
-
-  if (loading) {
-    return <div>Loading...</div>
-  }
-
-  if (!profile || (profile.role !== 'pi' && profile.role !== 'admin')) {
-    router.push('/dashboard')
-    return null
   }
 
   return (

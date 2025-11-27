@@ -1,22 +1,22 @@
-# Protocol Extractor 🔬
+# Protocol Extractor
 
 > AI-powered clinical trial protocol extraction and team management for research coordinators and PIs
 
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-green)](https://supabase.com/)
-[![Claude AI](https://img.shields.io/badge/Claude-AI-orange)](https://anthropic.com/)
+[![Mistral AI](https://img.shields.io/badge/Mistral-OCR-orange)](https://mistral.ai/)
 
-## 🎯 What It Does
+## What It Does
 
 Protocol Extractor automates the tedious process of extracting study data from clinical trial protocol PDFs. What used to take 4-8 hours of manual work now takes less than 10 minutes with AI assistance.
 
 **Core Features:**
-- 🤖 **AI Protocol Extraction** - Upload a PDF and Claude AI extracts all key study data
-- 👥 **Team Management** - Assign coordinators and PIs to studies
-- 📊 **Patient Tracking** - Track enrolled patients against target enrollment
-- 🔐 **Role-Based Access** - Secure authentication with magic links
-- 📱 **Mobile Responsive** - Works on all devices
+- **AI Protocol Extraction** - Upload a PDF and Mistral OCR + AI extracts all key study data (works with scanned documents!)
+- **Team Management** - Assign coordinators and PIs to studies
+- **Patient Tracking** - Track enrolled patients against target enrollment
+- **Role-Based Access** - Secure authentication with magic links
+- **Mobile Responsive** - Works on all devices
 
 ## 🚀 Quick Start
 

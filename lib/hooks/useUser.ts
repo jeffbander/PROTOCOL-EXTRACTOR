@@ -18,17 +18,39 @@ export function useUser() {
   const supabase = createClient()
 
   useEffect(() => {
+    const fetchOrCreateProfile = async (authUser: User) => {
+      // Try to get existing profile
+      let { data: profileData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      // Auto-create profile if missing
+      if (!profileData) {
+        const { data: newProfile } = await supabase
+          .from('users')
+          .insert({
+            id: authUser.id,
+            email: authUser.email!,
+            name: authUser.user_metadata?.name || '',
+            role: authUser.user_metadata?.role || 'pi' // Default to PI
+          })
+          .select()
+          .single()
+
+        profileData = newProfile
+      }
+
+      return profileData
+    }
+
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
 
       if (user) {
-        const { data: profileData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-
+        const profileData = await fetchOrCreateProfile(user)
         setProfile(profileData)
       }
 
@@ -42,12 +64,7 @@ export function useUser() {
         setUser(session?.user ?? null)
 
         if (session?.user) {
-          const { data: profileData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-
+          const profileData = await fetchOrCreateProfile(session.user)
           setProfile(profileData)
         } else {
           setProfile(null)

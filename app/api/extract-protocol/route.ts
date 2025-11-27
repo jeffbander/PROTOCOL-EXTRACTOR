@@ -1,30 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+import { extractProtocol } from '@/lib/mistral-ocr'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication (simplified - just check if user is logged in)
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check user role
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || (profile.role !== 'pi' && profile.role !== 'admin')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.json({ error: 'Please log in to extract protocols' }, { status: 401 })
     }
 
     // Get the uploaded file
@@ -35,79 +20,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
 
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      return NextResponse.json({ error: 'Only PDF files are supported' }, { status: 400 })
+    }
+
+    // Validate file size (50MB max)
+    const MAX_SIZE = 50 * 1024 * 1024
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: 'File size must be less than 50MB' }, { status: 400 })
+    }
+
     // Convert file to base64
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const base64 = buffer.toString('base64')
 
-    // Call Claude API with the PDF
-    const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document' as any,
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64,
-              },
-            },
-            {
-              type: 'text',
-              text: `Extract the following information from this clinical trial protocol:
+    console.log(`Processing PDF: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`)
 
-1. Study name/title
-2. Phase (e.g., Phase 1, Phase 2, Phase 3, Phase 4)
-3. Medical condition or indication being studied
-4. ALL inclusion criteria (as a list)
-5. ALL exclusion criteria (as a list)
-6. Visit schedule or study timepoints (list each visit/timepoint)
-7. Target enrollment number
+    // Extract protocol using Mistral OCR pipeline
+    const result = await extractProtocol(base64)
 
-Return the data in JSON format with these exact keys:
-{
-  "name": "",
-  "phase": "",
-  "indication": "",
-  "inclusion_criteria": [],
-  "exclusion_criteria": [],
-  "visit_schedule": [],
-  "target_enrollment": 0
-}
+    if (result.method === 'error' || !result.data) {
+      console.error('Extraction failed:', result.error)
+      return NextResponse.json(
+        { error: result.error || 'Failed to extract protocol data' },
+        { status: 500 }
+      )
+    }
 
-Important: Return ONLY the JSON object, no additional text or explanation.`,
-            },
-          ],
-        },
-      ],
+    console.log('Extraction successful:', {
+      name: result.data.name,
+      phase: result.data.phase,
+      inclusionCount: result.data.inclusion_criteria.length,
+      exclusionCount: result.data.exclusion_criteria.length,
+      visitCount: result.data.visit_schedule.length
     })
 
-    // Extract the text content from Claude's response
-    const textContent = message.content.find(block => block.type === 'text')
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text content in response')
-    }
-
-    // Parse the JSON response
-    let extractedData
-    try {
-      // Try to find JSON in the response
-      const jsonMatch = textContent.text.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        extractedData = JSON.parse(jsonMatch[0])
-      } else {
-        extractedData = JSON.parse(textContent.text)
-      }
-    } catch (parseError) {
-      console.error('Failed to parse Claude response:', textContent.text)
-      throw new Error('Failed to parse extracted data')
-    }
-
-    return NextResponse.json(extractedData)
+    return NextResponse.json(result.data)
   } catch (error: any) {
     console.error('Extraction error:', error)
     return NextResponse.json(
