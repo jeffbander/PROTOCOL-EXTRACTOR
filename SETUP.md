@@ -355,3 +355,105 @@ CREATE INDEX IF NOT EXISTS idx_studies_status ON public.studies(status);
 -- Update existing studies to have default status
 UPDATE public.studies SET status = 'pending_irb_submission' WHERE status IS NULL;
 ```
+
+---
+
+## Migration: Add Budget and CTA Data Fields (v3)
+
+If you already have an existing database, run this migration to add budget and CTA document extraction support:
+
+```sql
+-- Add budget_data column for storing extracted budget information
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS budget_data JSONB;
+
+-- Add cta_data column for storing extracted CTA (Clinical Trial Agreement) information
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS cta_data JSONB;
+
+-- Add comments explaining the JSONB structure
+COMMENT ON COLUMN public.studies.budget_data IS 'Extracted budget data including procedure payments, visit payments, milestone payments, and payment terms';
+COMMENT ON COLUMN public.studies.cta_data IS 'Extracted CTA data including payment info, invoice requirements, and key contacts';
+```
+
+### Budget Data Structure (JSONB)
+```json
+{
+  "total_budget": 50000,
+  "currency": "USD",
+  "budget_type": "per-patient",
+  "per_patient_total": 2500,
+  "screen_failure_payment": 500,
+  "early_termination_payment": 1000,
+  "procedure_payments": [
+    {
+      "procedure_name": "Blood Draw",
+      "payment_amount": 50,
+      "currency": "USD",
+      "per_patient": true,
+      "visit_associated": "Screening Visit"
+    }
+  ],
+  "visit_payments": [
+    {
+      "visit_name": "Screening Visit",
+      "visit_number": 1,
+      "total_payment": 500,
+      "currency": "USD",
+      "procedures_included": ["Physical Exam", "Blood Draw", "ECG"]
+    }
+  ],
+  "milestone_payments": [
+    {
+      "milestone_name": "First Patient Enrolled",
+      "payment_amount": 5000,
+      "currency": "USD",
+      "trigger_condition": "Upon enrollment of first patient"
+    }
+  ],
+  "startup_costs": 2500,
+  "annual_maintenance": 1000,
+  "closeout_costs": 500,
+  "payment_terms": {
+    "payment_frequency": "Monthly",
+    "invoice_process": "Submit via sponsor portal",
+    "payment_timeline": "Net 30",
+    "holdback_percentage": 10,
+    "holdback_conditions": "Released upon study completion"
+  },
+  "pass_through_costs": ["Central Lab Fees", "Imaging Costs"],
+  "important_notes": ["All invoices must include PO number"]
+}
+```
+
+### CTA Data Structure (JSONB)
+```json
+{
+  "document_title": "Clinical Trial Agreement",
+  "agreement_number": "CTA-2024-001",
+  "sponsor_name": "Pharma Inc",
+  "site_name": "University Medical Center",
+  "payment_info": {
+    "payment_method": "Wire Transfer",
+    "payment_currency": "USD",
+    "billing_address": "accounts@sponsor.com",
+    "payment_contact": "John Doe",
+    "tax_requirements": "W-9 required"
+  },
+  "references_budget_amendment": "Budget Amendment 2.0",
+  "timeline": {
+    "agreement_effective_date": "2024-01-01",
+    "study_start_date": "2024-02-01",
+    "estimated_end_date": "2025-12-31",
+    "invoice_submission_deadline": "Within 30 days of service"
+  },
+  "invoice_requirements": ["Study Number", "PO Number", "Patient Count", "Visit Details"],
+  "invoice_submission_method": "Email",
+  "invoice_submission_address": "invoices@sponsor.com",
+  "payment_hold_conditions": ["Missing documentation", "Audit findings"],
+  "audit_requirements": "Annual financial audit",
+  "sponsor_contact_name": "Jane Smith",
+  "sponsor_contact_email": "jsmith@sponsor.com",
+  "financial_contact_name": "Bob Johnson",
+  "financial_contact_email": "bjohnson@sponsor.com",
+  "important_notes": ["Quarterly reconciliation required"]
+}
+```
