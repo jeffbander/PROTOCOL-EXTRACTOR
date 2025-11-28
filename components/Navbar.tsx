@@ -1,46 +1,25 @@
 'use client'
 
-import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 
-export default function Navbar() {
-  const { profile, loading } = useUser()
+interface NavbarProps {
+  userEmail?: string
+  userRole?: string
+}
+
+export default function Navbar({ userEmail, userRole }: NavbarProps) {
   const router = useRouter()
   const supabase = createClient()
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-
-  useEffect(() => {
-    // Get user email from auth even if profile doesn't exist
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email || null)
-    })
-  }, [supabase.auth])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/auth/login')
   }
 
-  // Always show navbar with sign out if we have a user email
-  const displayEmail = profile?.email || userEmail
-  const displayRole = profile?.role || 'pi' // Default to PI for new users
-
-  if (loading && !userEmail) {
-    return (
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <span className="text-xl font-bold text-primary-600">Protocol Extractor</span>
-            </div>
-          </div>
-        </div>
-      </nav>
-    )
-  }
+  const displayEmail = userEmail
+  const displayRole = userRole || 'pi'
 
   return (
     <nav className="bg-white shadow-sm">

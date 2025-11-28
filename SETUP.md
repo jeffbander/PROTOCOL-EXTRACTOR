@@ -57,7 +57,39 @@ CREATE TABLE public.studies (
   target_enrollment INTEGER,
   protocol_data JSONB,
   owner_id UUID REFERENCES public.users(id) NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  -- Administrative fields
+  gco_number TEXT,                    -- GCO/Protocol number
+  protocol_number TEXT,               -- Official protocol number
+  fund_number TEXT,                   -- PI Fund number
+  sponsor_name TEXT,                  -- Sponsor organization
+  nct_number TEXT,                    -- ClinicalTrials.gov identifier
+
+  -- Study status tracking
+  status TEXT CHECK (status IN (
+    'pending_irb_submission',
+    'pending_budget_submission',
+    'awaiting_irb_approval',
+    'approved',
+    'enrolling',
+    'follow_up_phase',
+    'closed'
+  )) DEFAULT 'pending_irb_submission',
+
+  -- Extended study design fields
+  study_design JSONB,                 -- {type, randomization, blinding, allocation_ratio}
+  investigational_product JSONB,      -- {name, dose, route, frequency, formulation}
+  treatment_duration TEXT,
+  comparator_type TEXT,
+
+  -- Extended protocol fields (extracted by AI)
+  study_arms JSONB,                   -- Array of treatment arms
+  primary_endpoints JSONB,            -- Array of primary endpoints
+  secondary_endpoints JSONB,          -- Array of secondary endpoints
+  concomitant_medications JSONB,      -- {allowed: [], prohibited: [], washout: []}
+
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Study team members
@@ -271,3 +303,55 @@ Open http://localhost:3000 in your browser.
 - **Database errors**: Make sure all SQL commands ran successfully
 - **Auth errors**: Check your Supabase URL and anon key are correct
 - **API errors**: Verify your Anthropic API key is valid
+
+---
+
+## Migration: Add Extended Study Fields (v2)
+
+If you already have an existing database, run this migration to add the new fields:
+
+```sql
+-- Add new columns to studies table
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS gco_number TEXT;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS protocol_number TEXT;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS fund_number TEXT;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS sponsor_name TEXT;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS nct_number TEXT;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS study_design JSONB;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS investigational_product JSONB;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS treatment_duration TEXT;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS comparator_type TEXT;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS study_arms JSONB;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS primary_endpoints JSONB;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS secondary_endpoints JSONB;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS concomitant_medications JSONB;
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Add status column with constraint
+ALTER TABLE public.studies ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending_irb_submission';
+
+-- Add check constraint for status (run separately if column already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'studies_status_check'
+  ) THEN
+    ALTER TABLE public.studies ADD CONSTRAINT studies_status_check
+    CHECK (status IN (
+      'pending_irb_submission',
+      'pending_budget_submission',
+      'awaiting_irb_approval',
+      'approved',
+      'enrolling',
+      'follow_up_phase',
+      'closed'
+    ));
+  END IF;
+END $$;
+
+-- Create index for status queries
+CREATE INDEX IF NOT EXISTS idx_studies_status ON public.studies(status);
+
+-- Update existing studies to have default status
+UPDATE public.studies SET status = 'pending_irb_submission' WHERE status IS NULL;
+```

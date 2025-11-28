@@ -5,7 +5,62 @@
 
 import { Mistral } from '@mistralai/mistralai';
 
-interface ProtocolData {
+// Study status options
+export const STUDY_STATUSES = [
+  { value: 'pending_irb_submission', label: 'Pending IRB Submission' },
+  { value: 'pending_budget_submission', label: 'Pending Budget Submission' },
+  { value: 'awaiting_irb_approval', label: 'Awaiting IRB Approval' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'enrolling', label: 'Enrolling' },
+  { value: 'follow_up_phase', label: 'Follow-up Phase' },
+  { value: 'closed', label: 'Closed' },
+] as const;
+
+export type StudyStatus = typeof STUDY_STATUSES[number]['value'];
+
+// Study design structure
+export interface StudyDesign {
+  type?: string;           // Interventional, Observational
+  randomization?: string;  // Randomized, Non-randomized
+  blinding?: string;       // Open-label, Single-blind, Double-blind
+  allocation_ratio?: string; // e.g., "1:1", "2:1"
+}
+
+// Treatment arm structure
+export interface StudyArm {
+  name: string;
+  type?: string;           // experimental, active_comparator, placebo
+  intervention?: string;
+  dose?: string;
+}
+
+// Endpoint structure
+export interface StudyEndpoint {
+  name: string;
+  description?: string;
+  timepoint?: string;
+  measurement_method?: string;
+}
+
+// Investigational product structure
+export interface InvestigationalProduct {
+  name?: string;
+  formulation?: string;
+  dose?: string;
+  route?: string;
+  frequency?: string;
+}
+
+// Concomitant medications structure
+export interface ConcomitantMedications {
+  allowed?: string[];
+  prohibited?: string[];
+  washout_required?: Array<{ medication: string; washout_period: string }>;
+}
+
+// Extended Protocol Data interface
+export interface ProtocolData {
+  // Basic fields (existing)
   name: string;
   phase: string;
   indication: string;
@@ -13,6 +68,27 @@ interface ProtocolData {
   exclusion_criteria: string[];
   visit_schedule: string[];
   target_enrollment: number;
+
+  // Administrative fields (manually entered or extracted)
+  gco_number?: string;           // GCO/Protocol number
+  protocol_number?: string;      // Official protocol number
+  fund_number?: string;          // PI Fund number
+  sponsor_name?: string;         // Sponsor organization
+  nct_number?: string;           // ClinicalTrials.gov ID
+
+  // Extended study design (extracted)
+  study_design?: StudyDesign;
+  study_arms?: StudyArm[];
+  investigational_product?: InvestigationalProduct;
+  treatment_duration?: string;
+  comparator_type?: string;
+
+  // Endpoints (extracted)
+  primary_endpoints?: StudyEndpoint[];
+  secondary_endpoints?: StudyEndpoint[];
+
+  // Medications (extracted)
+  concomitant_medications?: ConcomitantMedications;
 }
 
 interface ExtractionResult {
@@ -99,37 +175,103 @@ export async function extractProtocolData(documentText: string): Promise<Extract
 
   const client = new Mistral({ apiKey });
 
-  const systemPrompt = `You are a clinical trial protocol extraction expert. Extract structured data from protocol documents with high accuracy.
+  const systemPrompt = `You are a clinical trial protocol extraction expert. Extract comprehensive structured data from protocol documents with high accuracy.
 
-IMPORTANT:
-- Extract ALL inclusion criteria found in the document
-- Extract ALL exclusion criteria found in the document
+IMPORTANT RULES:
+- Extract ALL inclusion criteria found in the document (each as separate array item)
+- Extract ALL exclusion criteria found in the document (each as separate array item)
 - Extract ALL visits/timepoints from the visit schedule
-- If a field is not found, use empty string or empty array
+- Look for protocol identifiers, sponsor information, and NCT numbers
+- Identify study design characteristics (randomization, blinding, arms)
+- Extract treatment/drug information if present
+- Identify primary and secondary endpoints
+- Note any prohibited or allowed concomitant medications
+- If a field is not found, use empty string, null, or empty array as appropriate
 - Return ONLY valid JSON, no markdown formatting or explanation`;
 
-  const userPrompt = `Extract the following information from this clinical trial protocol:
+  const userPrompt = `Extract comprehensive information from this clinical trial protocol. Be thorough and extract ALL available data.
 
-1. Study name/title (full official name)
-2. Phase (Phase 1, Phase 2, Phase 3, Phase 4, or combination like "Phase 2/3")
-3. Medical condition or indication being studied
-4. ALL inclusion criteria (each criterion as a separate array item)
-5. ALL exclusion criteria (each criterion as a separate array item)
-6. Visit schedule or study timepoints (each visit as a separate array item, e.g., "Screening Visit", "Day 1", "Week 4", etc.)
-7. Target enrollment number (as integer, 0 if not specified)
+## REQUIRED OUTPUT FORMAT (JSON):
 
-Return the data as JSON with these exact keys:
 {
-  "name": "",
-  "phase": "",
-  "indication": "",
-  "inclusion_criteria": [],
-  "exclusion_criteria": [],
-  "visit_schedule": [],
-  "target_enrollment": 0
+  "name": "Full official study title",
+  "phase": "Phase 1, Phase 2, Phase 3, Phase 4, Phase 1/2, Phase 2/3, or Feasibility",
+  "indication": "Medical condition/disease being studied",
+  "target_enrollment": 0,
+
+  "protocol_number": "Official protocol number/identifier from the document",
+  "sponsor_name": "Sponsoring organization name",
+  "nct_number": "NCT number if mentioned (format: NCT########)",
+
+  "study_design": {
+    "type": "Interventional or Observational",
+    "randomization": "Randomized or Non-randomized or N/A",
+    "blinding": "Open-label, Single-blind, Double-blind, or Triple-blind",
+    "allocation_ratio": "e.g., 1:1, 2:1, or null if not specified"
+  },
+
+  "study_arms": [
+    {
+      "name": "Arm/group name",
+      "type": "experimental, active_comparator, placebo, or no_intervention",
+      "intervention": "Treatment description",
+      "dose": "Dosing information if applicable"
+    }
+  ],
+
+  "investigational_product": {
+    "name": "Drug/device name",
+    "formulation": "Tablet, injection, etc.",
+    "dose": "Dose amount and unit",
+    "route": "Oral, IV, SC, IM, etc.",
+    "frequency": "Dosing frequency"
+  },
+
+  "treatment_duration": "Total treatment period",
+  "comparator_type": "Placebo, Active comparator, or None",
+
+  "inclusion_criteria": [
+    "Each inclusion criterion as a separate string"
+  ],
+
+  "exclusion_criteria": [
+    "Each exclusion criterion as a separate string"
+  ],
+
+  "primary_endpoints": [
+    {
+      "name": "Endpoint name",
+      "description": "What is being measured",
+      "timepoint": "When measured"
+    }
+  ],
+
+  "secondary_endpoints": [
+    {
+      "name": "Endpoint name",
+      "description": "What is being measured",
+      "timepoint": "When measured"
+    }
+  ],
+
+  "visit_schedule": [
+    "Screening Visit",
+    "Day 1 / Baseline",
+    "Week 2",
+    "etc."
+  ],
+
+  "concomitant_medications": {
+    "allowed": ["List of allowed medications/classes"],
+    "prohibited": ["List of prohibited medications/classes"],
+    "washout_required": [
+      {"medication": "Drug/class name", "washout_period": "Duration"}
+    ]
+  }
 }
 
-DOCUMENT TEXT:
+## DOCUMENT TEXT TO ANALYZE:
+
 ${documentText}`;
 
   try {
@@ -147,13 +289,40 @@ ${documentText}`;
 
     // Clean and parse JSON
     const cleaned = cleanJsonResponse(resultText);
-    const data = JSON.parse(cleaned) as ProtocolData;
+    const rawData = JSON.parse(cleaned);
 
-    // Ensure arrays are actually arrays
-    data.inclusion_criteria = ensureArray(data.inclusion_criteria);
-    data.exclusion_criteria = ensureArray(data.exclusion_criteria);
-    data.visit_schedule = ensureArray(data.visit_schedule);
-    data.target_enrollment = parseInt(String(data.target_enrollment)) || 0;
+    // Build the structured ProtocolData object with proper defaults
+    const data: ProtocolData = {
+      // Basic fields (required)
+      name: rawData.name || '',
+      phase: rawData.phase || '',
+      indication: rawData.indication || '',
+      target_enrollment: parseInt(String(rawData.target_enrollment)) || 0,
+
+      // Arrays (ensure they are arrays)
+      inclusion_criteria: ensureArray(rawData.inclusion_criteria),
+      exclusion_criteria: ensureArray(rawData.exclusion_criteria),
+      visit_schedule: ensureArray(rawData.visit_schedule),
+
+      // Administrative fields (extracted)
+      protocol_number: rawData.protocol_number || undefined,
+      sponsor_name: rawData.sponsor_name || undefined,
+      nct_number: rawData.nct_number || undefined,
+
+      // Study design
+      study_design: rawData.study_design || undefined,
+      study_arms: Array.isArray(rawData.study_arms) ? rawData.study_arms : undefined,
+      investigational_product: rawData.investigational_product || undefined,
+      treatment_duration: rawData.treatment_duration || undefined,
+      comparator_type: rawData.comparator_type || undefined,
+
+      // Endpoints
+      primary_endpoints: Array.isArray(rawData.primary_endpoints) ? rawData.primary_endpoints : undefined,
+      secondary_endpoints: Array.isArray(rawData.secondary_endpoints) ? rawData.secondary_endpoints : undefined,
+
+      // Medications
+      concomitant_medications: rawData.concomitant_medications || undefined,
+    };
 
     return {
       data,

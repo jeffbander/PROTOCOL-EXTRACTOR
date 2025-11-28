@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export const dynamic = 'force-dynamic'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import { createClient } from '@/lib/supabase/client'
+
+import { STUDY_STATUSES, StudyStatus } from '@/lib/mistral-ocr'
 
 interface ExtractedData {
   name: string
@@ -14,6 +17,13 @@ interface ExtractedData {
   exclusion_criteria: string[]
   visit_schedule: string[]
   target_enrollment: number
+  // Administrative fields (manually entered or extracted)
+  gco_number?: string
+  protocol_number?: string
+  fund_number?: string
+  sponsor_name?: string
+  nct_number?: string
+  status?: StudyStatus
 }
 
 export default function UploadProtocolPage() {
@@ -22,7 +32,22 @@ export default function UploadProtocolPage() {
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | undefined>()
+  const [userRole, setUserRole] = useState<string | undefined>()
   const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserEmail(user.email)
+        const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
+        setUserRole(profile?.role || 'pi')
+      }
+    }
+    fetchUserData()
+  }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -101,7 +126,7 @@ export default function UploadProtocolPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
+      <Navbar userEmail={userEmail} userRole={userRole} />
 
       <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
@@ -199,6 +224,78 @@ export default function UploadProtocolPage() {
                       onChange={(e) => setExtractedData({ ...extractedData, indication: e.target.value })}
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
                     />
+                  </div>
+
+                  {/* Administrative Fields Section */}
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-md font-medium text-gray-800 mb-4">Administrative Information</h3>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Protocol Number</label>
+                        <input
+                          type="text"
+                          value={extractedData.protocol_number || ''}
+                          onChange={(e) => setExtractedData({ ...extractedData, protocol_number: e.target.value })}
+                          placeholder="e.g., ABC-001-2024"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GCO Number</label>
+                        <input
+                          type="text"
+                          value={extractedData.gco_number || ''}
+                          onChange={(e) => setExtractedData({ ...extractedData, gco_number: e.target.value })}
+                          placeholder="Enter GCO number"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">PI Fund Number</label>
+                        <input
+                          type="text"
+                          value={extractedData.fund_number || ''}
+                          onChange={(e) => setExtractedData({ ...extractedData, fund_number: e.target.value })}
+                          placeholder="Enter fund number"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">NCT Number</label>
+                        <input
+                          type="text"
+                          value={extractedData.nct_number || ''}
+                          onChange={(e) => setExtractedData({ ...extractedData, nct_number: e.target.value })}
+                          placeholder="e.g., NCT12345678"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Sponsor Name</label>
+                        <input
+                          type="text"
+                          value={extractedData.sponsor_name || ''}
+                          onChange={(e) => setExtractedData({ ...extractedData, sponsor_name: e.target.value })}
+                          placeholder="Enter sponsor organization"
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Study Status</label>
+                        <select
+                          value={extractedData.status || 'pending_irb_submission'}
+                          onChange={(e) => setExtractedData({ ...extractedData, status: e.target.value as StudyStatus })}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+                        >
+                          {STUDY_STATUSES.map((status) => (
+                            <option key={status.value} value={status.value}>
+                              {status.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
                   <div>

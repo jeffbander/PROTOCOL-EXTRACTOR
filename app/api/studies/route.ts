@@ -39,16 +39,43 @@ export async function POST(request: NextRequest) {
     const { data: study, error } = await serviceClient
       .from('studies')
       .insert({
+        // Basic fields
         name: data.name,
         phase: data.phase,
         indication: data.indication,
         target_enrollment: data.target_enrollment,
-        protocol_data: {
-          inclusion_criteria: data.inclusion_criteria,
-          exclusion_criteria: data.exclusion_criteria,
-          visit_schedule: data.visit_schedule,
-        },
         owner_id: user.id,
+
+        // Administrative fields
+        gco_number: data.gco_number || null,
+        protocol_number: data.protocol_number || null,
+        fund_number: data.fund_number || null,
+        sponsor_name: data.sponsor_name || null,
+        nct_number: data.nct_number || null,
+
+        // Status (default to pending_irb_submission)
+        status: data.status || 'pending_irb_submission',
+
+        // Extended protocol data stored as JSONB
+        protocol_data: {
+          inclusion_criteria: data.inclusion_criteria || [],
+          exclusion_criteria: data.exclusion_criteria || [],
+          visit_schedule: data.visit_schedule || [],
+        },
+
+        // Study design
+        study_design: data.study_design || null,
+        study_arms: data.study_arms || null,
+        investigational_product: data.investigational_product || null,
+        treatment_duration: data.treatment_duration || null,
+        comparator_type: data.comparator_type || null,
+
+        // Endpoints
+        primary_endpoints: data.primary_endpoints || null,
+        secondary_endpoints: data.secondary_endpoints || null,
+
+        // Medications
+        concomitant_medications: data.concomitant_medications || null,
       })
       .select()
       .single()
