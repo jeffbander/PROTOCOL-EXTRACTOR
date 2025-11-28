@@ -104,6 +104,10 @@ export async function PATCH(
     if (body.nct_number !== undefined) updateData.nct_number = body.nct_number || null
     if (body.target_enrollment !== undefined) updateData.target_enrollment = body.target_enrollment || null
 
+    // Budget and CTA data (JSONB fields)
+    if (body.budget_data !== undefined) updateData.budget_data = body.budget_data || null
+    if (body.cta_data !== undefined) updateData.cta_data = body.cta_data || null
+
     // Only proceed if there's something to update
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })

@@ -285,7 +285,8 @@ ${documentText}`;
       maxTokens: 8000
     });
 
-    const resultText = response.choices?.[0]?.message?.content || '';
+    const content = response.choices?.[0]?.message?.content;
+    const resultText = typeof content === 'string' ? content : '';
 
     // Clean and parse JSON
     const cleaned = cleanJsonResponse(resultText);

@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { STUDY_STATUSES, StudyStatus } from '@/lib/mistral-ocr'
+import { BudgetData, CTAData, formatCurrency } from '@/lib/mistral-budget-cta'
 
 interface Study {
   id: string
@@ -27,6 +28,9 @@ interface Study {
   sponsor_name: string | null
   nct_number: string | null
   status: StudyStatus | null
+  // Budget and CTA data
+  budget_data: BudgetData | null
+  cta_data: CTAData | null
 }
 
 interface StudyMember {
@@ -49,7 +53,7 @@ interface Patient {
 export default function StudyDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'patients'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'team' | 'patients' | 'budget'>('overview')
   const [study, setStudy] = useState<Study | null>(null)
   const [members, setMembers] = useState<StudyMember[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
@@ -415,6 +419,16 @@ export default function StudyDetailPage() {
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
                 Patients
+              </button>
+              <button
+                onClick={() => setActiveTab('budget')}
+                className={`${
+                  activeTab === 'budget'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Budget & CTA
               </button>
             </nav>
           </div>
@@ -791,6 +805,339 @@ export default function StudyDetailPage() {
                       <p className="text-sm text-gray-500 text-center py-8">No patients enrolled yet</p>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'budget' && (
+              <div className="p-6 space-y-8">
+                {/* Upload Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => router.push(`/studies/${studyId}/upload-budget`)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  >
+                    <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Upload Budget or CTA
+                  </button>
+                </div>
+
+                {/* Budget Section */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <svg className="h-5 w-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Budget Information
+                  </h3>
+
+                  {study.budget_data ? (
+                    <div className="space-y-6">
+                      {/* Budget Summary Cards */}
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        {study.budget_data.per_patient_total && (
+                          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <p className="text-sm text-green-600 font-medium">Per Patient Total</p>
+                            <p className="text-2xl font-bold text-green-700">
+                              {formatCurrency(study.budget_data.per_patient_total, study.budget_data.currency)}
+                            </p>
+                          </div>
+                        )}
+                        {study.budget_data.screen_failure_payment && (
+                          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                            <p className="text-sm text-yellow-600 font-medium">Screen Failure</p>
+                            <p className="text-2xl font-bold text-yellow-700">
+                              {formatCurrency(study.budget_data.screen_failure_payment, study.budget_data.currency)}
+                            </p>
+                          </div>
+                        )}
+                        {study.budget_data.startup_costs && (
+                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <p className="text-sm text-blue-600 font-medium">Startup Costs</p>
+                            <p className="text-2xl font-bold text-blue-700">
+                              {formatCurrency(study.budget_data.startup_costs, study.budget_data.currency)}
+                            </p>
+                          </div>
+                        )}
+                        {study.budget_data.closeout_costs && (
+                          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                            <p className="text-sm text-purple-600 font-medium">Closeout Costs</p>
+                            <p className="text-2xl font-bold text-purple-700">
+                              {formatCurrency(study.budget_data.closeout_costs, study.budget_data.currency)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Visit Payments Table */}
+                      {study.budget_data.visit_payments && study.budget_data.visit_payments.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Visit Payments ({study.budget_data.visit_payments.length} visits)</h4>
+                          <div className="border rounded-md overflow-hidden">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Visit</th>
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Payment</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Procedures Included</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {study.budget_data.visit_payments.map((visit, index) => (
+                                  <tr key={index} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{visit.visit_name}</td>
+                                    <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
+                                      {formatCurrency(visit.total_payment, visit.currency)}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-500">
+                                      {visit.procedures_included.slice(0, 3).join(', ')}
+                                      {visit.procedures_included.length > 3 && ` +${visit.procedures_included.length - 3} more`}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Procedure Payments */}
+                      {study.budget_data.procedure_payments && study.budget_data.procedure_payments.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Procedure Payments ({study.budget_data.procedure_payments.length} procedures)</h4>
+                          <div className="border rounded-md overflow-hidden max-h-64 overflow-y-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Procedure</th>
+                                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Payment</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Visit</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {study.budget_data.procedure_payments.map((proc, index) => (
+                                  <tr key={index} className="hover:bg-gray-50">
+                                    <td className="px-4 py-2 text-sm text-gray-900">{proc.procedure_name}</td>
+                                    <td className="px-4 py-2 text-sm text-right font-medium text-green-600">
+                                      {formatCurrency(proc.payment_amount, proc.currency)}
+                                    </td>
+                                    <td className="px-4 py-2 text-sm text-gray-500">{proc.visit_associated || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Milestone Payments */}
+                      {study.budget_data.milestone_payments && study.budget_data.milestone_payments.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Milestone Payments</h4>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {study.budget_data.milestone_payments.map((milestone, index) => (
+                              <div key={index} className="border rounded-md p-4 bg-gradient-to-r from-green-50 to-white">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium text-gray-900">{milestone.milestone_name}</p>
+                                    <p className="text-sm text-gray-500 mt-1">{milestone.trigger_condition}</p>
+                                  </div>
+                                  <p className="text-lg font-bold text-green-600">
+                                    {formatCurrency(milestone.payment_amount, milestone.currency)}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Payment Terms */}
+                      {study.budget_data.payment_terms && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Payment Terms</h4>
+                          <div className="border rounded-md p-4 bg-gray-50 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                            {study.budget_data.payment_terms.payment_frequency && (
+                              <div>
+                                <p className="text-xs text-gray-500 uppercase">Frequency</p>
+                                <p className="text-sm font-medium text-gray-900">{study.budget_data.payment_terms.payment_frequency}</p>
+                              </div>
+                            )}
+                            {study.budget_data.payment_terms.payment_timeline && (
+                              <div>
+                                <p className="text-xs text-gray-500 uppercase">Timeline</p>
+                                <p className="text-sm font-medium text-gray-900">{study.budget_data.payment_terms.payment_timeline}</p>
+                              </div>
+                            )}
+                            {study.budget_data.payment_terms.holdback_percentage && (
+                              <div>
+                                <p className="text-xs text-gray-500 uppercase">Holdback</p>
+                                <p className="text-sm font-medium text-gray-900">{study.budget_data.payment_terms.holdback_percentage}%</p>
+                              </div>
+                            )}
+                            {study.budget_data.payment_terms.invoice_process && (
+                              <div className="col-span-2 sm:col-span-4">
+                                <p className="text-xs text-gray-500 uppercase">Invoice Process</p>
+                                <p className="text-sm font-medium text-gray-900">{study.budget_data.payment_terms.invoice_process}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-500">No budget data uploaded yet</p>
+                      <button
+                        onClick={() => router.push(`/studies/${studyId}/upload-budget`)}
+                        className="mt-3 text-sm text-primary-600 hover:text-primary-800 font-medium"
+                      >
+                        Upload Budget Document
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200"></div>
+
+                {/* CTA Section */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <svg className="h-5 w-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Clinical Trial Agreement (CTA)
+                  </h3>
+
+                  {study.cta_data ? (
+                    <div className="space-y-6">
+                      {/* Agreement Info */}
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        {study.cta_data.agreement_number && (
+                          <div className="bg-blue-50 p-3 rounded-lg">
+                            <p className="text-xs text-blue-600 font-medium">Agreement #</p>
+                            <p className="text-sm font-bold text-blue-800">{study.cta_data.agreement_number}</p>
+                          </div>
+                        )}
+                        {study.cta_data.sponsor_name && (
+                          <div className="bg-blue-50 p-3 rounded-lg">
+                            <p className="text-xs text-blue-600 font-medium">Sponsor</p>
+                            <p className="text-sm font-bold text-blue-800">{study.cta_data.sponsor_name}</p>
+                          </div>
+                        )}
+                        {study.cta_data.payment_info?.payment_method && (
+                          <div className="bg-blue-50 p-3 rounded-lg">
+                            <p className="text-xs text-blue-600 font-medium">Payment Method</p>
+                            <p className="text-sm font-bold text-blue-800">{study.cta_data.payment_info.payment_method}</p>
+                          </div>
+                        )}
+                        {study.cta_data.payment_info?.payment_currency && (
+                          <div className="bg-blue-50 p-3 rounded-lg">
+                            <p className="text-xs text-blue-600 font-medium">Currency</p>
+                            <p className="text-sm font-bold text-blue-800">{study.cta_data.payment_info.payment_currency}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Invoice Information */}
+                      {(study.cta_data.invoice_submission_method || study.cta_data.invoice_submission_address || (study.cta_data.invoice_requirements && study.cta_data.invoice_requirements.length > 0)) && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Invoice Submission</h4>
+                          <div className="border rounded-md p-4 bg-gray-50 space-y-3">
+                            {study.cta_data.invoice_submission_method && (
+                              <div>
+                                <span className="text-xs text-gray-500 uppercase">Method: </span>
+                                <span className="text-sm font-medium text-gray-900">{study.cta_data.invoice_submission_method}</span>
+                              </div>
+                            )}
+                            {study.cta_data.invoice_submission_address && (
+                              <div>
+                                <span className="text-xs text-gray-500 uppercase">Submit To: </span>
+                                <span className="text-sm font-medium text-gray-900">{study.cta_data.invoice_submission_address}</span>
+                              </div>
+                            )}
+                            {study.cta_data.invoice_requirements && study.cta_data.invoice_requirements.length > 0 && (
+                              <div>
+                                <p className="text-xs text-gray-500 uppercase mb-1">Required on Invoice:</p>
+                                <ul className="list-disc list-inside text-sm text-gray-900">
+                                  {study.cta_data.invoice_requirements.map((req, index) => (
+                                    <li key={index}>{req}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Key Contacts */}
+                      {(study.cta_data.sponsor_contact_name || study.cta_data.financial_contact_name) && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Key Contacts</h4>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {study.cta_data.sponsor_contact_name && (
+                              <div className="border rounded-md p-4 bg-white">
+                                <p className="text-xs text-gray-500 uppercase">Sponsor Contact</p>
+                                <p className="text-sm font-medium text-gray-900">{study.cta_data.sponsor_contact_name}</p>
+                                {study.cta_data.sponsor_contact_email && (
+                                  <a href={`mailto:${study.cta_data.sponsor_contact_email}`} className="text-sm text-primary-600 hover:text-primary-800">
+                                    {study.cta_data.sponsor_contact_email}
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                            {study.cta_data.financial_contact_name && (
+                              <div className="border rounded-md p-4 bg-white">
+                                <p className="text-xs text-gray-500 uppercase">Financial Contact</p>
+                                <p className="text-sm font-medium text-gray-900">{study.cta_data.financial_contact_name}</p>
+                                {study.cta_data.financial_contact_email && (
+                                  <a href={`mailto:${study.cta_data.financial_contact_email}`} className="text-sm text-primary-600 hover:text-primary-800">
+                                    {study.cta_data.financial_contact_email}
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Important Notes */}
+                      {study.cta_data.important_notes && study.cta_data.important_notes.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Important Notes</h4>
+                          <ul className="border rounded-md p-4 bg-yellow-50 space-y-1">
+                            {study.cta_data.important_notes.map((note, index) => (
+                              <li key={index} className="text-sm text-gray-700 flex items-start">
+                                <svg className="h-4 w-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                {note}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-500">No CTA data uploaded yet</p>
+                      <button
+                        onClick={() => router.push(`/studies/${studyId}/upload-budget`)}
+                        className="mt-3 text-sm text-primary-600 hover:text-primary-800 font-medium"
+                      >
+                        Upload CTA Document
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
