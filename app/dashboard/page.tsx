@@ -69,8 +69,8 @@ export default async function DashboardPage() {
   // Combine and deduplicate studies
   const ownedSet = new Set((ownedStudies || []).map(s => s.id))
   const assignedStudies = (memberStudies || [])
-    .filter(m => m.studies && !ownedSet.has((m.studies as Study).id))
-    .map(m => ({ ...(m.studies as Study), isOwned: false }))
+    .filter(m => m.studies && !ownedSet.has((m.studies as unknown as Study).id))
+    .map(m => ({ ...(m.studies as unknown as Study), isOwned: false }))
 
   const allOwnedStudies = (ownedStudies || []).map(s => ({ ...s, isOwned: true }))
   const studies = [...allOwnedStudies, ...assignedStudies]
