@@ -5,7 +5,18 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize Resend client to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) {
+    return null;
+  }
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 const FROM_EMAIL = process.env.EMAIL_FROM || 'MSFHH Research <noreply@resend.dev>';
 const APP_NAME = 'MSFHH Research App';
@@ -51,7 +62,8 @@ export async function sendInviteEmail({
   inviterName,
   studyName,
 }: SendInviteEmailParams): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResendClient();
+  if (!client) {
     console.warn('RESEND_API_KEY not configured, skipping email');
     return { success: true }; // Silently skip if not configured
   }
@@ -61,7 +73,7 @@ export async function sendInviteEmail({
   const inviterInfo = inviterName ? `${inviterName} has` : 'You have been';
 
   try {
-    await resend.emails.send({
+    await client.emails.send({
       from: FROM_EMAIL,
       to,
       subject: `You're invited to join ${APP_NAME}`,
@@ -175,7 +187,8 @@ export async function sendMagicLinkEmail({
   isNewUser = false,
   role,
 }: SendMagicLinkEmailParams): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResendClient();
+  if (!client) {
     console.warn('RESEND_API_KEY not configured, skipping email');
     return { success: true };
   }
@@ -186,7 +199,7 @@ export async function sendMagicLinkEmail({
     : `Click the button below to securely sign in to ${APP_NAME}. This link will expire in 1 hour.`;
 
   try {
-    await resend.emails.send({
+    await client.emails.send({
       from: FROM_EMAIL,
       to,
       subject: isNewUser ? `Complete your ${APP_NAME} registration` : `Sign in to ${APP_NAME}`,
