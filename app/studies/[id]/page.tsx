@@ -9,6 +9,16 @@ import { createClient } from '@/lib/supabase/client'
 import { STUDY_STATUSES, StudyStatus } from '@/lib/mistral-ocr'
 import { BudgetData, CTAData, formatCurrency } from '@/lib/mistral-budget-cta'
 
+// Type guard to check if budget_data is in the expected format
+function isValidBudgetData(data: any): data is BudgetData {
+  return data && typeof data === 'object' && 'currency' in data && !('budget_version' in data)
+}
+
+// Type guard to check if cta_data is in the expected format
+function isValidCTAData(data: any): data is CTAData {
+  return data && typeof data === 'object' && ('sponsor_name' in data || 'agreement_number' in data) && !('budget_version' in data)
+}
+
 interface Study {
   id: string
   name: string
@@ -833,7 +843,7 @@ export default function StudyDetailPage() {
                     Budget Information
                   </h3>
 
-                  {study.budget_data ? (
+                  {study.budget_data && isValidBudgetData(study.budget_data) ? (
                     <div className="space-y-6">
                       {/* Budget Summary Cards */}
                       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -992,7 +1002,9 @@ export default function StudyDetailPage() {
                       <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <p className="mt-2 text-sm text-gray-500">No budget data uploaded yet</p>
+                      <p className="mt-2 text-sm text-gray-500">
+                        {study.budget_data ? 'Budget data format is outdated. Please re-upload.' : 'No budget data uploaded yet'}
+                      </p>
                       <button
                         onClick={() => router.push(`/studies/${studyId}/upload-budget`)}
                         className="mt-3 text-sm text-primary-600 hover:text-primary-800 font-medium"
@@ -1015,7 +1027,7 @@ export default function StudyDetailPage() {
                     Clinical Trial Agreement (CTA)
                   </h3>
 
-                  {study.cta_data ? (
+                  {study.cta_data && isValidCTAData(study.cta_data) ? (
                     <div className="space-y-6">
                       {/* Agreement Info */}
                       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -1129,7 +1141,9 @@ export default function StudyDetailPage() {
                       <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <p className="mt-2 text-sm text-gray-500">No CTA data uploaded yet</p>
+                      <p className="mt-2 text-sm text-gray-500">
+                        {study.cta_data ? 'CTA data format is outdated. Please re-upload.' : 'No CTA data uploaded yet'}
+                      </p>
                       <button
                         onClick={() => router.push(`/studies/${studyId}/upload-budget`)}
                         className="mt-3 text-sm text-primary-600 hover:text-primary-800 font-medium"

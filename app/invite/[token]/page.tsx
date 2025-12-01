@@ -60,7 +60,7 @@ export default function InvitePage() {
 
       if (authError) throw authError
 
-      setMessage('Check your email for the magic link to complete registration!')
+      setMessage('Check your email for the secure sign-in link to complete your MSFHH Research App registration!')
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -108,14 +108,17 @@ export default function InvitePage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            You&apos;re Invited
+            Welcome to MSFHH Research App
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Join Protocol Extractor as a{' '}
-            <span className="font-medium">
-              {invitation?.role === 'pi' ? 'Principal Investigator' :
-               invitation?.role === 'admin' ? 'Administrator' : 'Coordinator'}
+            You&apos;ve been invited to join as a{' '}
+            <span className="font-medium text-primary-600">
+              {invitation?.role === 'pi' ? 'Principal Investigator (PI)' :
+               invitation?.role === 'admin' ? 'Administrator' : 'Study Coordinator'}
             </span>
+          </p>
+          <p className="mt-1 text-center text-xs text-gray-500">
+            Clinical Trial Protocol Management Platform
           </p>
         </div>
 

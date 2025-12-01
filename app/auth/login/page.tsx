@@ -28,7 +28,7 @@ export default function LoginPage() {
       if (error) throw error
 
       setMessageType('success')
-      setMessage('Check your email for the magic link!')
+      setMessage('Check your email for the sign-in link! It contains a secure link to access MSFHH Research App.')
     } catch (error: any) {
       setMessageType('error')
       setMessage(error.message || 'An error occurred')
@@ -42,10 +42,13 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Protocol Extractor
+            MSFHH Research App
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in with your email
+            Clinical Trial Protocol Management
+          </p>
+          <p className="mt-1 text-center text-xs text-gray-500">
+            Sign in with your email to continue
           </p>
         </div>
 

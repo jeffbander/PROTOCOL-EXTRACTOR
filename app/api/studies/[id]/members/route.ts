@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
+import { sendInviteEmail } from '@/lib/email'
 
 export async function POST(
   request: NextRequest,
@@ -72,6 +73,19 @@ export async function POST(
       return NextResponse.json({ error: 'Invitation already sent to this email for this study' }, { status: 400 })
     }
 
+    // Get study name and inviter name for the email
+    const { data: studyData } = await serviceClient
+      .from('studies')
+      .select('name')
+      .eq('id', studyId)
+      .single()
+
+    const { data: inviterData } = await serviceClient
+      .from('users')
+      .select('name, email')
+      .eq('id', user.id)
+      .single()
+
     // Create invitation with study_id
     const token = randomUUID()
     const expiresAt = new Date()
@@ -94,10 +108,27 @@ export async function POST(
       throw inviteError
     }
 
+    // Send invitation email
+    const inviteUrl = `${request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${token}`
+    const emailResult = await sendInviteEmail({
+      to: email,
+      inviteUrl,
+      role: role || 'coordinator',
+      inviterName: inviterData?.name || inviterData?.email || undefined,
+      studyName: studyData?.name || undefined,
+    })
+
+    if (!emailResult.success) {
+      console.warn('Failed to send invite email:', emailResult.error)
+    }
+
     return NextResponse.json({
       invitation,
       inviteUrl: `/invite/${token}`,
-      message: 'User not found - invitation created. Share the invite link with them.',
+      emailSent: emailResult.success,
+      message: emailResult.success
+        ? 'Invitation email sent successfully!'
+        : 'Invitation created. Share the invite link with them (email sending failed).',
     })
   } catch (error: any) {
     console.error('Add member error:', error)

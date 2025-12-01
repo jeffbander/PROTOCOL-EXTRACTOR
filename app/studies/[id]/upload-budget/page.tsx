@@ -452,7 +452,7 @@ export default function UploadBudgetCTAPage() {
                         <p className="text-sm font-medium text-gray-900">{extractedCTA.site_name}</p>
                       </div>
                     )}
-                    {extractedCTA.references_budget_amendment && (
+                    {extractedCTA.references_budget_amendment && typeof extractedCTA.references_budget_amendment === 'string' && (
                       <div>
                         <p className="text-xs text-gray-500">Budget Reference</p>
                         <p className="text-sm font-medium text-gray-900">{extractedCTA.references_budget_amendment}</p>

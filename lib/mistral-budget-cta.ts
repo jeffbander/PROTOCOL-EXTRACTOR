@@ -268,7 +268,21 @@ ${documentText}`;
     const content = response.choices?.[0]?.message?.content;
     const resultText = typeof content === 'string' ? content : '';
     const cleaned = cleanJsonResponse(resultText);
-    const rawData = JSON.parse(cleaned);
+
+    let rawData;
+    try {
+      rawData = JSON.parse(cleaned);
+    } catch (parseError: any) {
+      console.error('Budget JSON parse error, attempting repair:', parseError.message);
+      // Try more aggressive cleaning
+      const repaired = cleaned
+        .replace(/,\s*}/g, '}')  // Remove trailing commas
+        .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+        .replace(/'/g, '"')      // Replace single quotes with double
+        .replace(/(\w+):/g, '"$1":') // Quote unquoted keys
+        .replace(/""+/g, '"');   // Fix double quotes
+      rawData = JSON.parse(repaired);
+    }
 
     // Build structured BudgetData with defaults
     const data: BudgetData = {
@@ -424,7 +438,21 @@ ${documentText}`;
     const content = response.choices?.[0]?.message?.content;
     const resultText = typeof content === 'string' ? content : '';
     const cleaned = cleanJsonResponse(resultText);
-    const rawData = JSON.parse(cleaned);
+
+    let rawData;
+    try {
+      rawData = JSON.parse(cleaned);
+    } catch (parseError: any) {
+      console.error('CTA JSON parse error, attempting repair:', parseError.message);
+      // Try more aggressive cleaning
+      const repaired = cleaned
+        .replace(/,\s*}/g, '}')  // Remove trailing commas
+        .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
+        .replace(/'/g, '"')      // Replace single quotes with double
+        .replace(/(\w+):/g, '"$1":') // Quote unquoted keys
+        .replace(/""+/g, '"');   // Fix double quotes
+      rawData = JSON.parse(repaired);
+    }
 
     // Build structured CTAData with defaults
     const data: CTAData = {
@@ -441,7 +469,7 @@ ${documentText}`;
         tax_requirements: rawData.payment_info?.tax_requirements || undefined,
       },
 
-      references_budget_amendment: rawData.references_budget_amendment || undefined,
+      references_budget_amendment: typeof rawData.references_budget_amendment === 'string' ? rawData.references_budget_amendment : undefined,
 
       timeline: {
         agreement_effective_date: rawData.timeline?.agreement_effective_date || undefined,
@@ -507,14 +535,34 @@ export async function extractCTA(pdfBase64: string): Promise<CTAExtractionResult
 // ============================================
 
 /**
- * Clean markdown/formatting from JSON response
+ * Clean markdown/formatting from JSON response and fix common escape issues
  */
 function cleanJsonResponse(response: string): string {
+  // Remove markdown code blocks
   let cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+
+  // Try to find JSON object in response
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     cleaned = jsonMatch[0];
   }
+
+  // Fix common JSON escape issues that Mistral sometimes produces
+  // Replace invalid escape sequences (like \_ or \# or unescaped control chars)
+  cleaned = cleaned
+    // Fix invalid backslash escapes - replace \X with X for non-standard escapes
+    .replace(/\\([^"\\\/bfnrtu])/g, '$1')
+    // Remove control characters that break JSON parsing
+    .replace(/[\x00-\x1F\x7F]/g, (char) => {
+      // Keep valid whitespace
+      if (char === '\n' || char === '\r' || char === '\t') {
+        return char;
+      }
+      return ' ';
+    })
+    // Fix unescaped newlines inside strings (common issue)
+    .replace(/(?<!\\)\\n(?=[^"]*"[,}\]])/g, '\\n');
+
   return cleaned.trim();
 }
 
